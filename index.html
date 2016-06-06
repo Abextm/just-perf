@@ -87,7 +87,7 @@ var ___jp__findFunctions="var ___jp__findFunctionsFinder="+(function(i,acc,failu
 		return acc;
 	}
 	return ___jp__findFunctionsFinder(i+1,acc,failures);
-}).toString()+";var ___jp__fns = ___jp__findFunctionsFinder(-1,[],0);";
+}).toString()+";___jp__fns = ___jp__findFunctionsFinder(-1,[],0);";
 var doPerf=function(t){
 	if(t.setup)t.setup();
 	var fnc=t.test;
@@ -165,16 +165,49 @@ function profile(){
 	Speeds=[];
 	var ___jp__value = edit.value;
 	var ___jp__fns;
-	var worker=true;//expose to eval'd
 	var err = (function(){
+		var worker=true;//expose to eval'd
 		var edit,error;
 		try{
 			eval(___jp__value);
 		}catch(e){
 			return e;
 		}
-		if(worker){
+		if(!worker){
 			eval(___jp__findFunctions);
+		}
+		var doPerfBrowser=function(i){
+			var res = doPerf(___jp__fns[i])
+			displayPerf({
+				info:___jp__fns[i].info,
+				time:res.time,
+				iters:res.iters,
+				ips:res.iters/res.time,
+				i:i,
+			})
+			i++;
+			if(i<___jp__fns.length){
+				setTimeout(function(){
+					doPerfBrowser(i);
+				},100);//So the browser doesn't freeze entirely
+			}
+		};
+		if(worker){
+			var burl = URL.createObjectURL(new Blob([___jp__value,";\nvar ___jp__fns;",___jp__findFunctions,";\nvar doPerf=",doPerf.toString(),";\n("+wwDoPerf+")();\n//close();"],{
+				type:"text/javascript",
+			}));
+			console.log("Running",burl);
+			ww = new Worker(burl);
+			ww.onerror=function(err){
+				error.style.display="block";
+				console.log(err);
+				error.value=err.toString();
+			};
+			ww.onmessage=function(ev){
+				displayPerf(ev.data);
+			};
+		}else{
+			doPerfBrowser(0);
 		}
 	})()
 	if(err){
@@ -182,40 +215,6 @@ function profile(){
 		console.log(err);
 		error.value=err.toString();
 		error.value+="\n"+err.stack;
-		return;
-	}
-	var doPerfBrowser=function(i){
-		var res = doPerf(___jp__fns[i])
-		displayPerf({
-			info:___jp__fns[i].info,
-			time:res.time,
-			iters:res.iters,
-			ips:res.iters/res.time,
-			i:i,
-		})
-		i++;
-		if(i<___jp__fns.length){
-			setTimeout(function(){
-				doPerfBrowser(i);
-			},100);//So the browser doesn't freeze entirely
-		}
-	};
-	if(worker){
-		var burl = URL.createObjectURL(new Blob([___jp__value,";\nvar ___jp__fns;",___jp__findFunctions,";\nvar doPerf=",doPerf.toString(),";\n("+wwDoPerf+")();\nclose();"],{
-			type:"text/javascript",
-		}));
-		console.log("Running",burl);
-		ww = new Worker(burl);
-		ww.onerror=function(err){
-			error.style.display="block";
-			console.log(err);
-			error.value=err.toString();
-		};
-		ww.onmessage=function(ev){
-			displayPerf(ev.data);
-		};
-	}else{
-		doPerfBrowser(0);
 	}
 }
 		</script>
